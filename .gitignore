@@ -1,17 +1,37 @@
 # Compiled binaries
+/inline_sec
 /bin/
-/tests/test_crypto
 /tests/test_handshake
 /tests/test_packet
+/tests/test_crypto
 /tests/test_checksum
+/tests/test_seqmap
+/tests/test_session
+/tests/test_frame
 
 # Object files
 *.o
 *.a
 *.so
 
+# Build directories
+build/
+dist/
+
+# IDE files
+.vscode/
+.idea/
+
 # macOS
 .DS_Store
+
+# Logs
+*.log
+
+# Temporary files
+*.tmp
+*.swp
+*~
 
 # VS Code local settings
 .vscode/
