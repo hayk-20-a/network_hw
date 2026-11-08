@@ -12,8 +12,11 @@ LDLIBS := -lcrypto
 TEST_CRYPTO := tests/test_crypto
 TEST_HANDSHAKE := tests/test_handshake
 TEST_PACKET := tests/test_packet
+TEST_SESSION := tests/test_session
+TEST_SEQMAP := tests/test_seqmap
+TEST_CHECKSUM := tests/test_checksum
 
-.PHONY: all test test-crypto test-handshake test-packet test-checksum test-seqmap clean
+.PHONY: all test test-crypto test-handshake test-packet test-checksum test-seqmap test-session clean
 
 all: test
 
@@ -26,7 +29,7 @@ $(TEST_HANDSHAKE): tests/test_handshake.c src/handshake.c include/handshake.h in
 $(TEST_PACKET): tests/test_packet.c src/packet.c include/packet.h
 	$(CC) $(CPPFLAGS) $(CFLAGS) tests/test_packet.c src/packet.c -o $@
 
-test: test-crypto test-handshake test-packet test-checksum test-seqmap
+test: test-crypto test-handshake test-packet test-checksum test-seqmap test-session
 
 test-crypto: $(TEST_CRYPTO)
 	./$(TEST_CRYPTO)
@@ -38,10 +41,10 @@ test-packet: $(TEST_PACKET)
 	./$(TEST_PACKET)
 
 clean:
-	rm -f $(TEST_CRYPTO) $(TEST_HANDSHAKE) $(TEST_PACKET) $(TEST_CHECKSUM) $(TEST_SEQMAP)
+	rm -f $(TEST_CRYPTO) $(TEST_HANDSHAKE) $(TEST_PACKET) $(TEST_CHECKSUM) $(TEST_SEQMAP) $(TEST_SESSION)
 
 
-TEST_CHECKSUM := tests/test_checksum
+
 
 $(TEST_CHECKSUM): tests/test_checksum.c src/checksum.c src/packet.c include/checksum.h include/packet.h
 	$(CC) $(CPPFLAGS) $(CFLAGS) tests/test_checksum.c src/checksum.c src/packet.c -o $@
@@ -50,11 +53,15 @@ test-checksum: $(TEST_CHECKSUM)
 	./$(TEST_CHECKSUM)
 
 
-TEST_SEQMAP := tests/test_seqmap
-
 
 $(TEST_SEQMAP): tests/test_seqmap.c src/seqmap.c include/seqmap.h
 	$(CC) $(CPPFLAGS) $(CFLAGS) tests/test_seqmap.c src/seqmap.c -o $@
 
 test-seqmap: $(TEST_SEQMAP)
 	./$(TEST_SEQMAP)
+
+$(TEST_SESSION): tests/test_session.c src/session.c src/handshake.c include/session.h include/handshake.h include/crypto.h
+	$(CC) $(CPPFLAGS) $(CFLAGS) tests/test_session.c src/session.c src/handshake.c $(LDFLAGS) $(LDLIBS) -o $@
+
+test-session: $(TEST_SESSION)
+	./$(TEST_SESSION)
