@@ -1,226 +1,49 @@
-# Transparent Inline TCP Security Gateway (Bump-in-the-Wire)
+# Transparent Inline TCP Security Gateway
 
-A Linux-based transparent inline security proxy operating between two network devices (`Device1` and `Device2`). The gateway captures selected TCP/IPv4 traffic, performs key exchange using Diffie–Hellman, encrypts/decrypts TCP payloads in-place using **AES-256-GCM**, recalculates protocol checksums, and forwards modified packets directly without UDP encapsulation or custom tunnel headers.
+### Bump-in-the-Wire Secure Communication Prototype
+
+A Linux-based inline security gateway prototype designed to protect selected TCP/IPv4 traffic between two end hosts. The system uses X25519 key exchange, HKDF-SHA256 key derivation, and AES-256-GCM authenticated encryption to encrypt and decrypt TCP payloads while preserving IPv4 and TCP headers.
+
+The project is implemented in C using OpenSSL and Linux NFQUEUE.
 
 ---
 
-## 🏗 Network Topology
+## Network Topology
 
 ```text
-[ PC1 ] <---> (eth0) [ Device 1 ] (eth1) <===[ Encrypted TCP ]===> (eth1) [ Device 2 ] (eth0) <---> [ PC2 ]
+[ PC1 ] <---> (eth0) [ Device 1 ] (eth1) <== Encrypted TCP ==> (eth1) [ Device 2 ] (eth0) <---> [ PC2 ]
+                          |                                          |
+                     Encryption                                  Decryption
 ```
 
-* **PC1 / PC2**: End-host endpoints communicating via TCP.
-* **Device 1 (Encryptor)**: Intercepts outbound TCP traffic, encrypts the TCP payload using AES-256-GCM, appends an authentication tag, recalculates TCP/IP checksums, and forwards the packet.
-* **Device 2 (Decryptor)**: Intercepts encrypted packets, verifies the AES-GCM authentication tag, decrypts the payload to plaintext, recalculates checksums, and delivers the original packet to PC2.
+- **PC1 / PC2:** End-hosts communicating over TCP.
+- **Device 1 — Encryptor:** Intercepts selected TCP packets, encrypts their payloads, and recalculates packet checksums.
+- **Device 2 — Decryptor:** Intercepts encrypted packets, verifies their authentication tags, decrypts payloads, and recalculates checksums.
 
----
+## Key Features
 
-## 🔐 Key Features & Security Architecture
+- **X25519 Key Exchange:** Establishes a shared secret between the gateway devices.
+- **HKDF-SHA256:** Derives directional encryption keys from the shared secret.
+- **AES-256-GCM:** Provides authenticated encryption and payload integrity.
+- **Per-Packet Nonces:** Uses a nonce generated for each encrypted frame.
+- **IPv4/TCP Packet Parsing:** Parses selected packets using a modular packet parser.
+- **Checksum Recalculation:** Recalculates IPv4 and TCP checksums after packet modification.
+- **Linux NFQUEUE Integration:** Captures selected packets using Linux Netfilter.
+- **TCP Control Channel:** Provides a separate TCP connection for the cryptographic handshake.
+- **Modular C Architecture:** Separates cryptographic, packet-processing, session, framing, and gateway logic.
 
-1. **In-Place Payload Encryption**: Encrypts only the TCP payload of matching traffic. IPv4 and TCP headers remain intact to preserve standard routing behavior.
-2. **AES-256-GCM Authenticated Encryption**: Guarantees confidentiality and payload integrity via 128-bit authentication tags.
-3. **Unique Nonce Generation**: Employs a unique 96-bit Nonce per encrypted packet within a session, derived via a monotonic sequence counter combined with salt.
-4. **Header Checksum Integrity**: Automatically recomputes IPv4 header checksums and TCP pseudo-header checksums after payload modification to prevent packet drop by intermediate routers or end hosts.
-5. **Zero-Encapsulation Tunneling**: Operates without wrapping traffic inside IPsec, WireGuard, or UDP encapsulation headers.
-
----
-
-## 🛠 Prerequisites & Dependencies
-
-Operating system requirement: **Linux (Debian/Ubuntu recommended)**.
-
-Install required dependencies:
-
-```bash
-sudo apt-get update
-sudo apt-get install -y build-essential libnetfilter-queue-dev libssl-dev iptables
-```
-
----
-
-## 🚀 Build & Execution
-
-### 1. Compilation
-
-Compile the binary using `gcc` or `make`:
-
-```bash
-gcc -O2 inline_sec.c -o inline_sec -lnetfilter_queue -lcrypto
-```
-
-### 2. Enable IP Forwarding
-
-Enable packet forwarding on both **Device 1** and **Device 2**:
-
-```bash
-sudo sysctl -w net.ipv4.ip_forward=1
-```
-
-### 3. Set Up NFQUEUE Rules (`iptables`)
-
-Redirect target TCP traffic to `NFQUEUE` (Queue `0`):
-
-**On Device 1 (Encryptor Node):**
-```bash
-sudo iptables -A FORWARD -p tcp -s <PC1_IP> -d <PC2_IP> -j NFQUEUE --queue-num 0
-```
-
-**On Device 2 (Decryptor Node):**
-```bash
-sudo iptables -A FORWARD -p tcp -s <PC1_IP> -d <PC2_IP> -j NFQUEUE --queue-num 0
-```
-
----
-
-## 🧪 Testing & Verification
-
-1. **Start Security Gateway Applications**:
-   * On **Device 1**:
-     ```bash
-     sudo ./inline_sec 1
-     ```
-   * On **Device 2**:
-     ```bash
-     sudo ./inline_sec 2
-     ```
-
-2. **Establish Target Traffic**:
-   * Start a listener on **PC2**:
-     ```bash
-     nc -l -p 8080
-     ```
-   * Connect from **PC1**:
-     ```bash
-     nc <PC2_IP> 8080
-     ```
-
-3. **Observe Gateway Logs**:
-   * **Device 1 Output**: `[Device 1] Encrypted packet (12 -> 28 bytes)`
-   * **Device 2 Output**: `[Device 2] Decrypted packet (28 -> 12 bytes)`
-
-4. **Packet Inspection**:
-   Run `tcpdump` on the link between `Device 1` and `Device 2` to confirm payload bytes are fully encrypted while IP/TCP packet headers remain intact:
-   ```bash
-   sudo tcpdump -i eth1 -X -nn "tcp port 8080"
-   ```
-
----
-
-
-## Secure Inline TCP Communication Prototype
-
-### Overview
-
-This project implements a Linux-based prototype for securing TCP payloads
-between two inline gateway devices.
-
-Topology:
-
-```text
-PC1  -->  Device1  -->  Device2  -->  PC2
-            |              |
-       Encryption      Decryption
-            |              |
-       X25519 / AES-256-GCM
-```
-
-### Technologies
-
-- C
-- OpenSSL 3
-- X25519 key exchange
-- HKDF-SHA256 key derivation
-- AES-256-GCM authenticated encryption
-- Linux NFQUEUE
-- TCP control channel
-- IPv4/TCP packet parsing
-- Packet checksum recalculation
-
-### Build
-
-The gateway requires Linux and the NFQUEUE development libraries.
-
-Install dependencies on Debian/Ubuntu:
-
-```bash
-sudo apt update
-sudo apt install build-essential clang libssl-dev \
-    libnetfilter-queue-dev pkg-config iptables
-```
-
-Build the project:
-
-```bash
-make clean
-make test
-make gateway
-```
-
-### Deployment
-
-Configure Device2 first:
-
-```bash
-sudo ./inline_sec 2 9000
-```
-
-Configure Device1:
-
-```bash
-sudo ./inline_sec 1 <DEVICE2_IP> 9000
-```
-
-### NFQUEUE Configuration
-
-On Device1:
-
-```bash
-sudo PC1_IP=<PC1_IP> PC2_IP=<PC2_IP> \
-    ./scripts/setup-device1.sh
-```
-
-On Device2:
-
-```bash
-sudo PC1_IP=<PC1_IP> PC2_IP=<PC2_IP> \
-    ./scripts/setup-device2.sh
-```
-
-Remove the configured rule:
-
-```bash
-sudo PC1_IP=<PC1_IP> PC2_IP=<PC2_IP> \
-    ./scripts/cleanup-nfqueue.sh
-```
-
-### Security Design
-
-1. X25519 is used to derive a shared secret.
-2. HKDF-SHA256 derives directional AES keys.
-3. AES-256-GCM encrypts and authenticates payloads.
-4. Nonces are embedded in each encrypted frame.
-5. Authentication failures cause packets to be dropped.
-
-### Limitations
-
-This implementation is a university prototype.
-
-- Peer authentication is not implemented; the handshake is susceptible to MITM attacks.
-- TCP sequence and acknowledgment translation requires further development.
-- Retransmission, fragmentation, and MTU handling require further hardening.
-- The current firewall rules select a limited traffic direction.
-- The implementation has not been validated in a complete Linux multi-host deployment.
-
-
-## Protocol Flow
+## Security Architecture
 
 ### Key Exchange
 
+The gateways use X25519 to establish a shared secret.
+
+HKDF-SHA256 derives separate directional AES-256 keys using context-specific labels.
+
 ```mermaid
 sequenceDiagram
-    participant D1 as Device1
-    participant D2 as Device2
+    participant D1 as Device 1
+    participant D2 as Device 2
 
     D1->>D2: X25519 Public Key + Salt
     D2->>D1: X25519 Public Key
@@ -233,24 +56,294 @@ sequenceDiagram
 ```mermaid
 sequenceDiagram
     participant PC1
-    participant D1 as Device1
-    participant D2 as Device2
+    participant D1 as Device 1
+    participant D2 as Device 2
     participant PC2
 
     PC1->>D1: TCP packet with plaintext payload
     Note over D1: AES-256-GCM encryption
-    D1->>D2: TCP packet with nonce + ciphertext + tag
+    D1->>D2: TCP packet with encrypted frame
     Note over D2: Verify authentication tag
     Note over D2: AES-256-GCM decryption
     D2->>PC2: TCP packet with plaintext payload
 ```
 
-### Frame Format
+### Encrypted Frame Format
 
-| Field | Size |
-|---|---:|
-| Nonce | 12 bytes |
-| Ciphertext | Variable |
-| Authentication Tag | 16 bytes |
+Each encrypted frame uses the following format:
 
-The frame overhead is 28 bytes per encrypted payload.
+| Field              |         Size |
+| ------------------ | -----------: |
+| Nonce              |     12 bytes |
+| Ciphertext         |     Variable |
+| Authentication Tag |     16 bytes |
+| **Total overhead** | **28 bytes** |
+
+The nonce is transmitted as part of the frame so that the receiving gateway can use the same nonce for authenticated decryption.
+
+## Project Structure
+
+```text
+network_hw/
+├── include/
+│   ├── crypto.h
+│   ├── handshake.h
+│   ├── session.h
+│   ├── frame.h
+│   ├── packet.h
+│   ├── checksum.h
+│   ├── seqmap.h
+│   ├── control.h
+│   ├── control_socket.h
+│   └── gateway.h
+│
+├── src/
+│   ├── crypto.c
+│   ├── handshake.c
+│   ├── session.c
+│   ├── frame.c
+│   ├── packet.c
+│   ├── checksum.c
+│   ├── seqmap.c
+│   ├── control.c
+│   ├── control_socket.c
+│   ├── gateway.c
+│   ├── inline_sec.c
+│   └── inline_sec_legacy.c
+│
+├── tests/
+│   ├── test_crypto.c
+│   ├── test_handshake.c
+│   ├── test_session.c
+│   ├── test_frame.c
+│   ├── test_packet.c
+│   ├── test_checksum.c
+│   └── test_seqmap.c
+│
+├── scripts/
+│   ├── setup-device1.sh
+│   ├── setup-device2.sh
+│   └── cleanup-nfqueue.sh
+│
+├── Makefile
+├── .gitignore
+└── README.md
+```
+
+## Prerequisites
+
+### Operating System
+
+Linux is required for NFQUEUE gateway execution. Debian or Ubuntu is recommended.
+
+### Dependencies
+
+Install the required packages:
+
+```bash
+sudo apt update
+
+sudo apt install -y \
+    build-essential \
+    clang \
+    pkg-config \
+    libssl-dev \
+    libnetfilter-queue-dev \
+    iptables
+```
+
+## Build
+
+Compile and execute the unit tests:
+
+```bash
+make clean
+make test
+```
+
+Build the gateway executable:
+
+```bash
+make gateway
+```
+
+The resulting executable is:
+
+```text
+inline_sec
+```
+
+The unit tests can also be executed individually:
+
+```bash
+make test-crypto
+make test-handshake
+make test-packet
+make test-checksum
+make test-seqmap
+make test-session
+make test-frame
+```
+
+## Deployment
+
+### 1. Enable IPv4 Forwarding
+
+On both Device 1 and Device 2:
+
+```bash
+sudo sysctl -w net.ipv4.ip_forward=1
+```
+
+For persistent configuration, enable forwarding in `/etc/sysctl.conf`:
+
+```text
+net.ipv4.ip_forward=1
+```
+
+Apply the configuration:
+
+```bash
+sudo sysctl -p
+```
+
+### 2. Start Device 2
+
+Device 2 listens for the control-channel connection:
+
+```bash
+sudo ./inline_sec 2 9000
+```
+
+### 3. Start Device 1
+
+Device 1 connects to Device 2:
+
+```bash
+sudo ./inline_sec 1 <DEVICE2_IP> 9000
+```
+
+Replace `<DEVICE2_IP>` with the actual IPv4 address of Device 2.
+
+### 4. Configure NFQUEUE
+
+On Device 1:
+
+```bash
+sudo PC1_IP=<PC1_IP> PC2_IP=<PC2_IP> \
+    ./scripts/setup-device1.sh
+```
+
+On Device 2:
+
+```bash
+sudo PC1_IP=<PC1_IP> PC2_IP=<PC2_IP> \
+    ./scripts/setup-device2.sh
+```
+
+The scripts configure selected TCP traffic to be sent to NFQUEUE queue 0.
+
+### 5. Remove NFQUEUE Rules
+
+On each gateway:
+
+```bash
+sudo PC1_IP=<PC1_IP> PC2_IP=<PC2_IP> \
+    ./scripts/cleanup-nfqueue.sh
+```
+
+## Testing and Verification
+
+### Unit Testing
+
+The project includes unit tests for:
+
+- AES-256-GCM encryption and decryption
+- Authentication-tag verification
+- X25519 key exchange
+- HKDF-SHA256 key derivation
+- IPv4/TCP packet parsing
+- IPv4 and TCP checksum calculation
+- TCP sequence mapping
+- Session initialization
+- Encrypted frame formatting
+
+Run the complete test suite:
+
+```bash
+make test
+```
+
+### Traffic Generation
+
+On PC2, start a TCP listener:
+
+```bash
+nc -l -p 8080
+```
+
+On PC1, connect to PC2:
+
+```bash
+nc <PC2_IP> 8080
+```
+
+Send test data through the connection.
+
+### Packet Inspection
+
+Capture traffic on the Device 1–Device 2 link:
+
+```bash
+sudo tcpdump -i eth1 -X -nn "tcp port 8080"
+```
+
+Packet inspection can be used to observe the encrypted payload frames and verify that the gateway modifies packet payloads.
+
+## Security Analysis
+
+### Security Properties
+
+| Mechanism              | Security Purpose                                      |
+| ---------------------- | ----------------------------------------------------- |
+| X25519                 | Shared-secret establishment                           |
+| HKDF-SHA256            | Cryptographic key derivation                          |
+| AES-256-GCM            | Payload confidentiality and integrity                 |
+| GCM authentication tag | Detection of payload modification                     |
+| Per-packet nonce       | Avoidance of nonce reuse within a session             |
+| Directional keys       | Separation of transmit and receive cryptographic keys |
+
+### Threat Model
+
+The prototype is intended to demonstrate protection of selected TCP payloads against passive observation and unauthorized payload modification while traffic passes through the inline gateways.
+
+### Known Limitations
+
+This project is an academic prototype and is not a production-ready transparent TCP proxy.
+
+- Gateway peer authentication is not implemented. The X25519 handshake is susceptible to man-in-the-middle attacks.
+- TCP sequence-number and acknowledgment-number translation is incomplete.
+- Retransmissions and out-of-order TCP segments are not fully handled.
+- Full bidirectional TCP flow handling is not yet implemented.
+- MTU expansion and fragmentation handling require further development.
+- Nonce-counter persistence across session restarts is not implemented.
+- Complete multi-host Linux integration testing has not yet been performed.
+- IPv4 and TCP headers remain visible and are not encrypted.
+- The current implementation does not provide protection for the entire TCP connection lifecycle.
+
+## Future Improvements
+
+- Implement mutual authentication of gateway peers.
+- Complete TCP sequence and acknowledgment translation.
+- Add robust retransmission and out-of-order packet support.
+- Improve bidirectional traffic handling.
+- Add MTU-aware packet processing.
+- Implement session lifecycle and rekeying.
+- Perform end-to-end testing on a Linux multi-host topology.
+- Improve logging, error handling, and performance.
+
+## Academic Context
+
+This project was developed as a university networking assignment to demonstrate the implementation of a Linux-based secure inline communication channel using Diffie–Hellman key exchange and AES-GCM authenticated encryption.
+
+The implementation focuses on cryptographic primitives, packet parsing, checksum processing, session management, and NFQUEUE-based packet interception.
