@@ -38,7 +38,9 @@ GATEWAY_SOURCES := \
 	src/crypto.c \
 	src/packet.c \
 	src/checksum.c \
-	src/seqmap.c
+	src/seqmap.c \
+	src/control.c \
+	src/control_socket.c \
 
 .PHONY: all test gateway test-crypto test-handshake test-packet \
 	test-checksum test-seqmap test-session test-frame clean

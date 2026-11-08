@@ -1,33 +1,39 @@
 
 #include "gateway.h"
+#include "control_socket.h"
 
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <errno.h>
+#include <unistd.h>
 
 int main(int argc, char *argv[])
 {
-    if (argc != 3) {
+    if (argc < 3) {
         fprintf(stderr,
-                "Usage: %s <mode: 1=Device1, 2=Device2> <control_socket_fd>\n",
-                argv[0]);
+                "Device1: %s 1 <Device2_IP> <port>\n"
+                "Device2: %s 2 <port>\n",
+                argv[0], argv[0]);
         return EXIT_FAILURE;
     }
 
-    char *end = NULL;
+    int mode = atoi(argv[1]);
+    int port;
+    int control_fd;
 
-    long mode = strtol(argv[1], &end, 10);
-    if (*end != '\0' || (mode != 1 && mode != 2)) {
-        fprintf(stderr, "Invalid mode. Use 1 or 2.\n");
+    if (mode == 1 && argc == 4) {
+        port = atoi(argv[3]);
+        control_fd = control_connect(argv[2], port);
+    } else if (mode == 2 && argc == 3) {
+        port = atoi(argv[2]);
+        control_fd = control_listen_accept(port);
+    } else {
+        fprintf(stderr, "Invalid arguments\n");
         return EXIT_FAILURE;
     }
 
-    end = NULL;
-    long socket_fd = strtol(argv[2], &end, 10);
-
-    if (*end != '\0' || socket_fd < 0) {
-        fprintf(stderr, "Invalid control socket file descriptor.\n");
+    if (control_fd < 0) {
+        fprintf(stderr, "[-] Control connection failed\n");
         return EXIT_FAILURE;
     }
 
@@ -38,16 +44,15 @@ int main(int argc, char *argv[])
         ? SESSION_DEVICE1
         : SESSION_DEVICE2;
 
-    context.control_socket = (int)socket_fd;
-    context.session_established = 0;
+    context.control_socket = control_fd;
 
-    printf("[+] Starting gateway as Device %ld\n", mode);
+    printf("[+] Control channel connected\n");
+    printf("[+] Starting Device%d gateway\n", mode);
 
     int result = gateway_run(&context);
 
     session_cleanup(&context.session);
+    close(control_fd);
 
-    return (result == 0)
-        ? EXIT_SUCCESS
-        : EXIT_FAILURE;
+    return result == 0 ? EXIT_SUCCESS : EXIT_FAILURE;
 }
