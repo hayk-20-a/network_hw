@@ -13,7 +13,7 @@ TEST_CRYPTO := tests/test_crypto
 TEST_HANDSHAKE := tests/test_handshake
 TEST_PACKET := tests/test_packet
 
-.PHONY: all test test-crypto test-handshake test-packet test-checksum clean
+.PHONY: all test test-crypto test-handshake test-packet test-checksum test-seqmap clean
 
 all: test
 
@@ -26,7 +26,7 @@ $(TEST_HANDSHAKE): tests/test_handshake.c src/handshake.c include/handshake.h in
 $(TEST_PACKET): tests/test_packet.c src/packet.c include/packet.h
 	$(CC) $(CPPFLAGS) $(CFLAGS) tests/test_packet.c src/packet.c -o $@
 
-test: test-crypto test-handshake test-packet test-checksum
+test: test-crypto test-handshake test-packet test-checksum test-seqmap
 
 test-crypto: $(TEST_CRYPTO)
 	./$(TEST_CRYPTO)
@@ -38,7 +38,7 @@ test-packet: $(TEST_PACKET)
 	./$(TEST_PACKET)
 
 clean:
-	rm -f $(TEST_CRYPTO) $(TEST_HANDSHAKE) $(TEST_PACKET) $(TEST_CHECKSUM)
+	rm -f $(TEST_CRYPTO) $(TEST_HANDSHAKE) $(TEST_PACKET) $(TEST_CHECKSUM) $(TEST_SEQMAP)
 
 
 TEST_CHECKSUM := tests/test_checksum
@@ -48,3 +48,13 @@ $(TEST_CHECKSUM): tests/test_checksum.c src/checksum.c src/packet.c include/chec
 
 test-checksum: $(TEST_CHECKSUM)
 	./$(TEST_CHECKSUM)
+
+
+TEST_SEQMAP := tests/test_seqmap
+
+
+$(TEST_SEQMAP): tests/test_seqmap.c src/seqmap.c include/seqmap.h
+	$(CC) $(CPPFLAGS) $(CFLAGS) tests/test_seqmap.c src/seqmap.c -o $@
+
+test-seqmap: $(TEST_SEQMAP)
+	./$(TEST_SEQMAP)
