@@ -1,0 +1,14 @@
+# Compiled binaries
+/bin/
+/tests/test_crypto
+
+# Object files
+*.o
+*.a
+*.so
+
+# macOS
+.DS_Store
+
+# VS Code local settings
+.vscode/

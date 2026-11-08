@@ -1,23 +1,25 @@
+CC := clang
 
-CC := gcc
+OPENSSL_PREFIX := $(shell brew --prefix openssl@3)
 
-TARGET := bin/inline_sec
-SRC := src/inline_sec.c
-
-CPPFLAGS := -Iinclude
+CPPFLAGS := -Iinclude -I$(OPENSSL_PREFIX)/include
 CFLAGS := -std=c11 -Wall -Wextra -Wpedantic -O2 -g
 
-PKG_CONFIG := pkg-config
-PKG_CFLAGS := $(shell $(PKG_CONFIG) --cflags libnetfilter_queue openssl)
-PKG_LIBS := $(shell $(PKG_CONFIG) --libs libnetfilter_queue openssl)
+LDFLAGS := -L$(OPENSSL_PREFIX)/lib
+LDLIBS := -lcrypto
 
-.PHONY: all clean
+TEST_CRYPTO := tests/test_crypto
+TEST_CRYPTO_SRC := tests/test_crypto.c src/crypto.c
 
-all: $(TARGET)
+.PHONY: all test clean
 
-	$(TARGET): $(SRC)
-	mkdir -p bin
-	$(CC) $(CPPFLAGS) $(CFLAGS) $(PKG_CFLAGS) $< -o $@ $(PKG_LIBS)
+all: test
 
-	clean:
-	rm -rf bin
+$(TEST_CRYPTO): $(TEST_CRYPTO_SRC) include/crypto.h
+	$(CC) $(CPPFLAGS) $(CFLAGS) $(TEST_CRYPTO_SRC) $(LDFLAGS) $(LDLIBS) -o $@
+
+test: $(TEST_CRYPTO)
+	./$(TEST_CRYPTO)
+
+clean:
+	rm -f $(TEST_CRYPTO)
