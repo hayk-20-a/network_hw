@@ -211,3 +211,46 @@ This implementation is a university prototype.
 - Retransmission, fragmentation, and MTU handling require further hardening.
 - The current firewall rules select a limited traffic direction.
 - The implementation has not been validated in a complete Linux multi-host deployment.
+
+
+## Protocol Flow
+
+### Key Exchange
+
+```mermaid
+sequenceDiagram
+    participant D1 as Device1
+    participant D2 as Device2
+
+    D1->>D2: X25519 Public Key + Salt
+    D2->>D1: X25519 Public Key
+    Note over D1,D2: Derive shared secret
+    Note over D1,D2: HKDF-SHA256 derives directional keys
+```
+
+### Payload Encryption
+
+```mermaid
+sequenceDiagram
+    participant PC1
+    participant D1 as Device1
+    participant D2 as Device2
+    participant PC2
+
+    PC1->>D1: TCP packet with plaintext payload
+    Note over D1: AES-256-GCM encryption
+    D1->>D2: TCP packet with nonce + ciphertext + tag
+    Note over D2: Verify authentication tag
+    Note over D2: AES-256-GCM decryption
+    D2->>PC2: TCP packet with plaintext payload
+```
+
+### Frame Format
+
+| Field | Size |
+|---|---:|
+| Nonce | 12 bytes |
+| Ciphertext | Variable |
+| Authentication Tag | 16 bytes |
+
+The frame overhead is 28 bytes per encrypted payload.
