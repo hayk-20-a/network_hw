@@ -12,3 +12,4 @@
 
 # VS Code local settings
 .vscode/
+*.dSYM/
