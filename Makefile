@@ -15,8 +15,9 @@ TEST_PACKET := tests/test_packet
 TEST_SESSION := tests/test_session
 TEST_SEQMAP := tests/test_seqmap
 TEST_CHECKSUM := tests/test_checksum
+TEST_FRAME := tests/test_frame
 
-.PHONY: all test test-crypto test-handshake test-packet test-checksum test-seqmap test-session clean
+.PHONY: all test test-crypto test-handshake test-packet test-checksum test-seqmap test-session test-frame clean
 
 all: test
 
@@ -29,7 +30,7 @@ $(TEST_HANDSHAKE): tests/test_handshake.c src/handshake.c include/handshake.h in
 $(TEST_PACKET): tests/test_packet.c src/packet.c include/packet.h
 	$(CC) $(CPPFLAGS) $(CFLAGS) tests/test_packet.c src/packet.c -o $@
 
-test: test-crypto test-handshake test-packet test-checksum test-seqmap test-session
+test: test-crypto test-handshake test-packet test-checksum test-seqmap test-session test-frame
 
 test-crypto: $(TEST_CRYPTO)
 	./$(TEST_CRYPTO)
@@ -41,9 +42,7 @@ test-packet: $(TEST_PACKET)
 	./$(TEST_PACKET)
 
 clean:
-	rm -f $(TEST_CRYPTO) $(TEST_HANDSHAKE) $(TEST_PACKET) $(TEST_CHECKSUM) $(TEST_SEQMAP) $(TEST_SESSION)
-
-
+	rm -f $(TEST_CRYPTO) $(TEST_HANDSHAKE) $(TEST_PACKET) $(TEST_CHECKSUM) $(TEST_SEQMAP) $(TEST_SESSION) $(TEST_FRAME)
 
 
 $(TEST_CHECKSUM): tests/test_checksum.c src/checksum.c src/packet.c include/checksum.h include/packet.h
@@ -65,3 +64,9 @@ $(TEST_SESSION): tests/test_session.c src/session.c src/handshake.c include/sess
 
 test-session: $(TEST_SESSION)
 	./$(TEST_SESSION)
+
+$(TEST_FRAME): tests/test_frame.c src/frame.c src/session.c src/handshake.c src/crypto.c include/frame.h include/session.h include/handshake.h include/crypto.h
+	$(CC) $(CPPFLAGS) $(CFLAGS) tests/test_frame.c src/frame.c src/session.c src/handshake.c src/crypto.c $(LDFLAGS) $(LDLIBS) -o $@
+
+test-frame: $(TEST_FRAME)
+	./$(TEST_FRAME)
