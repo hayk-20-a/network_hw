@@ -107,3 +107,107 @@ sudo iptables -A FORWARD -p tcp -s <PC1_IP> -d <PC2_IP> -j NFQUEUE --queue-num 0
 
 ---
 
+
+## Secure Inline TCP Communication Prototype
+
+### Overview
+
+This project implements a Linux-based prototype for securing TCP payloads
+between two inline gateway devices.
+
+Topology:
+
+```text
+PC1  -->  Device1  -->  Device2  -->  PC2
+            |              |
+       Encryption      Decryption
+            |              |
+       X25519 / AES-256-GCM
+```
+
+### Technologies
+
+- C
+- OpenSSL 3
+- X25519 key exchange
+- HKDF-SHA256 key derivation
+- AES-256-GCM authenticated encryption
+- Linux NFQUEUE
+- TCP control channel
+- IPv4/TCP packet parsing
+- Packet checksum recalculation
+
+### Build
+
+The gateway requires Linux and the NFQUEUE development libraries.
+
+Install dependencies on Debian/Ubuntu:
+
+```bash
+sudo apt update
+sudo apt install build-essential clang libssl-dev \
+    libnetfilter-queue-dev pkg-config iptables
+```
+
+Build the project:
+
+```bash
+make clean
+make test
+make gateway
+```
+
+### Deployment
+
+Configure Device2 first:
+
+```bash
+sudo ./inline_sec 2 9000
+```
+
+Configure Device1:
+
+```bash
+sudo ./inline_sec 1 <DEVICE2_IP> 9000
+```
+
+### NFQUEUE Configuration
+
+On Device1:
+
+```bash
+sudo PC1_IP=<PC1_IP> PC2_IP=<PC2_IP> \
+    ./scripts/setup-device1.sh
+```
+
+On Device2:
+
+```bash
+sudo PC1_IP=<PC1_IP> PC2_IP=<PC2_IP> \
+    ./scripts/setup-device2.sh
+```
+
+Remove the configured rule:
+
+```bash
+sudo PC1_IP=<PC1_IP> PC2_IP=<PC2_IP> \
+    ./scripts/cleanup-nfqueue.sh
+```
+
+### Security Design
+
+1. X25519 is used to derive a shared secret.
+2. HKDF-SHA256 derives directional AES keys.
+3. AES-256-GCM encrypts and authenticates payloads.
+4. Nonces are embedded in each encrypted frame.
+5. Authentication failures cause packets to be dropped.
+
+### Limitations
+
+This implementation is a university prototype.
+
+- Peer authentication is not implemented; the handshake is susceptible to MITM attacks.
+- TCP sequence and acknowledgment translation requires further development.
+- Retransmission, fragmentation, and MTU handling require further hardening.
+- The current firewall rules select a limited traffic direction.
+- The implementation has not been validated in a complete Linux multi-host deployment.
